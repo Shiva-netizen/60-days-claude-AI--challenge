@@ -1,5 +1,3 @@
-# 60-days-claude-AI--challenge
-
 # 🚀 60 Days Claude AI Challenge
 
 Welcome to my 60 Days Claude AI Challenge repository.

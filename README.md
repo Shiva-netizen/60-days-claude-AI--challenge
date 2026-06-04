@@ -13,7 +13,7 @@ This challenge is focused on building practical AI skills through daily learning
 AI Enthusiast | Full Stack Developer | Problem Solver
 
 * B.Tech in Computer Science
-* Skilled in Python, Django, MySQL, HTML, CSS, JavaScript, React, Git & GitHub
+* Skilled in Python, Django, MySQL, HTML, CSS, JavaScript, React, Git & GitHub, Power Automate
 * Passionate about AI, Automation, and Building Intelligent Solutions
 
 ---
@@ -71,7 +71,6 @@ AI Enthusiast | Full Stack Developer | Problem Solver
 
 * Python
 * JavaScript
-* C
 
 ### Web Development
 
@@ -89,7 +88,7 @@ AI Enthusiast | Full Stack Developer | Problem Solver
 
 * Git & GitHub
 * VS Code
-* Postman
+* Power Automate
 * Claude AI
 * ChatGPT
 
@@ -105,8 +104,6 @@ Day-03/
 Day-60/
 
 README.md
-AI-Personality-Profile.png
-Shivashish-Portrait.jpg
 ```
 
 ---

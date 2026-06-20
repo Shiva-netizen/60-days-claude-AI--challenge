@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Face Puzzle — Snap, Scramble, Solve</title>
+<style>
+  :root{
+    --bg: #0d0c0b;
+    --bg-soft: #161412;
+    --panel: #1c1a17;
+    --panel-line: #322d27;
+    --paper: #f4ede1;
+    --amber: #e8a23a;
+    --amber-bright: #ffb84d;
+    --coral: #e2613f;
+    --good: #4caf7d;
+    --good-bright: #6fe3a8;
+    --text: #f1ece3;
+    --text-dim: #a89e8f;
+    --shadow: rgba(0,0,0,0.55);
+  }
+
+  *{ box-sizing: border-box; }
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: radial-gradient(circle at 20% -10%, #241f19 0%, var(--bg) 55%) fixed;
+    color: var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  ::selection{ background: var(--amber); color: #1a1408; }
+
+  .app{
+    min-height: 100vh;
+    display:flex; flex-direction:column;
+    align-items:center;
+    padding: 28px 16px 60px;
+  }
+
+  .masthead{
+    width:100%; max-width: 760px;
+    display:flex; align-items:baseline; justify-content:space-between;
+    margin-bottom: 22px;
+    border-bottom: 1px solid var(--panel-line);
+    padding-bottom: 14px;
+  }
+  .masthead .brand{
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-weight: 600;
+    font-size: clamp(22px, 4vw, 30px);
+    letter-spacing: 0.01em;
+    color: var(--paper);
+  }
+  .masthead .brand em{
+    font-style: italic;
+    color: var(--amber-bright);
+  }
+  .masthead .tag{
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--text-dim);
+  }
+
+  .stage{
+    width: 100%;
+    max-width: 760px;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: 0 30px 60px -30px var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .stage::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: radial-gradient(circle, rgba(232,162,58,0.04) 1px, transparent 1px);
+    background-size: 14px 14px;
+    pointer-events:none;
+  }
+
+  .panel-label{
+    display:flex; align-items:center; gap:10px;
+    font-size: 12px; text-transform:uppercase; letter-spacing:0.16em;
+    color: var(--amber);
+    margin-bottom: 18px;
+  }
+  .panel-label .num{
+    width: 22px; height: 22px; border-radius:50%;
+    border: 1px solid var(--amber);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 11px; color: var(--amber-bright);
+  }
+  .panel-label::after{
+    content:""; flex:1; height:1px; background: var(--panel-line);
+  }
+
+  /* ---------- view sections ---------- */
+  .view{ display:none; position: relative; z-index:1; }
+  .view.active{ display:block; animation: fade-in 0.35s ease; }
+  @keyframes fade-in{ from{ opacity:0; transform: translateY(6px);} to{opacity:1; transform:none;} }
+
+  /* ---------- camera view ---------- */
+  .camera-wrap{
+    position: relative;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    border-radius: 14px;
+    overflow: hidden;
+    background: #050505;
+    aspect-ratio: 4/3;
+    border: 1px solid var(--panel-line);
+  }
+  #video{
+    width:100%; height:100%; object-fit:cover;
+    transform: scaleX(-1);
+    display:block;
+  }
+  .camera-frame{
+    position:absolute; inset:0;
+    pointer-events:none;
+    border-radius:14px;
+  }
+  .camera-frame svg{ width:100%; height:100%; }
+  .camera-status{
+    position:absolute; top:10px; left:10px;
+    background: rgba(0,0,0,0.55);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: var(--text);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 20px;
+    display:flex; align-items:center; gap:6px;
+    letter-spacing:0.04em;
+  }
+  .camera-status .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: var(--coral);
+    box-shadow: 0 0 0 0 rgba(226,97,63,0.6);
+    animation: pulse-dot 1.6s infinite;
+  }
+  @keyframes pulse-dot{
+    0%{ box-shadow:0 0 0 0 rgba(226,97,63,0.55);}
+    70%{ box-shadow:0 0 0 7px rgba(226,97,63,0);}
+    100%{ box-shadow:0 0 0 0 rgba(226,97,63,0);}
+  }
+
+  .camera-error{
+    max-width: 480px;
+    margin: 0 auto;
+    text-align:center;
+    padding: 36px 22px;
+    border: 1px dashed var(--panel-line);
+    border-radius: 14px;
+    background: var(--bg-soft);
+  }
+  .camera-error .icon{ font-size: 34px; margin-bottom: 10px; }
+  .camera-error h3{ margin: 0 0 8px; color: var(--paper); font-family:'Fraunces', serif; }
+  .camera-error p{ color: var(--text-dim); font-size: 14px; line-height:1.55; margin: 0 0 18px; }
+
+  canvas#captureCanvas, canvas#sliceCanvas{ display:none; }
+
+  .controls-row{
+    display:flex; justify-content:center; gap:12px; margin-top: 22px; flex-wrap: wrap;
+  }
+
+  button{
+    font-family: inherit;
+    cursor:pointer;
+    border:none;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    padding: 13px 26px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+  }
+  button:active{ transform: scale(0.96); }
+  button:focus-visible{ outline: 2px solid var(--amber-bright); outline-offset: 3px; }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .btn-primary{
+    background: linear-gradient(135deg, var(--amber-bright), var(--coral));
+    color: #1a1006;
+    box-shadow: 0 10px 24px -10px rgba(232,162,58,0.6);
+  }
+  .btn-primary:hover:not(:disabled){ box-shadow: 0 14px 28px -10px rgba(232,162,58,0.75); }
+
+  .btn-ghost{
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--panel-line);
+  }
+  .btn-ghost:hover:not(:disabled){ border-color: var(--amber); color: var(--amber-bright); }
+
+  .btn-good{
+    background: linear-gradient(135deg, var(--good-bright), var(--good));
+    color: #07261a;
+  }
+
+  /* ---------- snapshot review ---------- */
+  .review-shot{
+    width:100%; max-width:480px; margin:0 auto;
+    border-radius:14px; overflow:hidden;
+    border: 1px solid var(--panel-line);
+    aspect-ratio:1/1;
+    background:#000;
+  }
+  .review-shot img{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  /* ---------- difficulty select ---------- */
+  .diff-grid{
+    display:grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    max-width: 480px; margin: 0 auto;
+  }
+  .diff-card{
+    background: var(--bg-soft);
+    border: 1px solid var(--panel-line);
+    border-radius: 14px;
+    padding: 18px 10px;
+    text-align:center;
+    cursor:pointer;
+    transition: border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  }
+  .diff-card:hover{ border-color: var(--amber); transform: translateY(-2px); }
+  .diff-card.selected{ border-color: var(--amber-bright); background: rgba(232,162,58,0.08); }
+  .diff-card .grid-icon{ width:46px; height:46px; margin: 0 auto 10px; display:grid; gap:2px; }
+  .diff-card .grid-icon span{ background: var(--text-dim); border-radius:2px; }
+  .diff-card.selected .grid-icon span{ background: var(--amber-bright); }
+  .diff-card .lbl{ font-weight:700; color: var(--paper); font-size:15px; }
+  .diff-card .sub{ font-size:11px; color: var(--text-dim); margin-top:3px; text-transform:uppercase; letter-spacing:0.08em; }
+
+  /* ---------- HUD ---------- */
+  .hud{
+    display:flex; justify-content:space-between; align-items:center;
+    gap: 10px; flex-wrap: wrap;
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    background: var(--bg-soft);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+  }
+  .hud-stat{ text-align:center; min-width: 78px; }
+  .hud-stat .v{
+    font-family:'Fraunces', serif; font-size: 19px; font-weight:600; color: var(--paper);
+    font-variant-numeric: tabular-nums;
+  }
+  .hud-stat .l{ font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color: var(--text-dim); margin-top:2px;}
+  .hud-divider{ width:1px; height:30px; background: var(--panel-line); }
+
+  /* ---------- puzzle board ---------- */
+  .board-wrap{
+    display:flex; justify-content:center;
+  }
+  .board{
+    position: relative;
+    width: min(480px, 100%);
+    aspect-ratio: 1/1;
+    background: #050505;
+    border-radius: 12px;
+    border: 1px solid var(--panel-line);
+    overflow: hidden;
+    touch-action: none;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+  .cell-grid{
+    position:absolute; inset:0;
+    pointer-events:none;
+  }
+  .cell-line{
+    position:absolute;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .piece{
+    position:absolute;
+    background-repeat:no-repeat;
+    cursor: grab;
+    border: 2px solid rgba(0,0,0,0.4);
+    box-sizing:border-box;
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+    will-change: left, top;
+    z-index: 1;
+    border-radius: 2px;
+  }
+  .piece.dragging{
+    cursor: grabbing;
+    z-index: 50 !important;
+    border-color: var(--amber-bright) !important;
+    box-shadow: 0 18px 34px -10px rgba(0,0,0,0.75), 0 0 0 2px var(--amber-bright);
+    transition: none;
+  }
+  .piece.correct{
+    border-color: var(--good-bright) !important;
+    box-shadow: 0 0 0 2px var(--good-bright) inset;
+  }
+  .piece.settle{
+    transition: left 0.22s cubic-bezier(.2,.8,.2,1), top 0.22s cubic-bezier(.2,.8,.2,1), box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+
+  /* ---------- results overlay ---------- */
+  .overlay{
+    position: fixed; inset:0;
+    background: rgba(5,4,3,0.82);
+    backdrop-filter: blur(6px);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index: 200;
+    padding: 20px;
+  }
+  .overlay.active{ display:flex; animation: fade-in 0.3s ease; }
+  .result-card{
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 18px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 420px;
+    text-align:center;
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.7);
+  }
+  .result-card .ribbon{
+    font-size: 11px; text-transform:uppercase; letter-spacing:0.16em;
+    color: var(--amber-bright);
+    margin-bottom: 6px;
+  }
+  .result-card h2{
+    font-family:'Fraunces', serif;
+    font-size: 28px;
+    margin: 0 0 18px;
+    color: var(--paper);
+  }
+  .result-grid{
+    display:grid; grid-template-columns: repeat(3,1fr);
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .result-grid .box{
+    background: var(--bg-soft);
+    border: 1px solid var(--panel-line);
+    border-radius: 10px;
+    padding: 12px 6px;
+  }
+  .result-grid .box .v{ font-family:'Fraunces', serif; font-size:18px; color:var(--amber-bright); font-variant-numeric: tabular-nums; }
+  .result-grid .box .l{ font-size:10px; color: var(--text-dim); text-transform:uppercase; letter-spacing:0.08em; margin-top:4px; }
+
+  .leaderboard{
+    text-align:left;
+    margin-bottom: 22px;
+    background: var(--bg-soft);
+    border: 1px solid var(--panel-line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    max-height: 200px;
+    overflow-y:auto;
+  }
+  .leaderboard h4{
+    margin: 0 0 10px;
+    font-size: 11px; text-transform:uppercase; letter-spacing:0.12em;
+    color: var(--text-dim);
+    display:flex; justify-content:space-between;
+  }
+  .lb-row{
+    display:flex; align-items:center; gap:10px;
+    padding: 7px 0;
+    border-top: 1px solid var(--panel-line);
+    font-size: 13px;
+  }
+  .lb-row:first-child{ border-top:none; }
+  .lb-row .rank{
+    width:20px; height:20px; border-radius:50%;
+    background: var(--panel-line);
+    color: var(--text-dim);
+    font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .lb-row.this-run .rank{ background: var(--amber-bright); color:#1a1006; }
+  .lb-row.this-run{ color: var(--amber-bright); }
+  .lb-row .lb-time{ font-variant-numeric: tabular-nums; font-weight:600; min-width:62px; }
+  .lb-row .lb-meta{ color: var(--text-dim); font-size:11px; flex:1; text-align:right; }
+  .lb-empty{ color: var(--text-dim); font-size:13px; padding: 6px 0; }
+
+  .result-actions{ display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+
+  .visually-hidden{
+    position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0);
+  }
+
+  footer.note{
+    margin-top: 22px;
+    color: var(--text-dim);
+    font-size: 11px;
+    text-align:center;
+    max-width: 480px;
+    line-height:1.6;
+  }
+
+  @media (max-width: 480px){
+    .stage{ padding: 18px; border-radius: 14px; }
+    .hud{ padding: 10px 12px; }
+    .hud-stat{ min-width: 64px; }
+    button{ padding: 12px 18px; font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <div class="masthead">
+    <div class="brand">Face<em>Puzzle</em></div>
+    <div class="tag">Snap · Scramble · Solve</div>
+  </div>
+
+  <div class="stage">
+
+    <!-- STEP 1: CAMERA -->
+    <section class="view active" id="view-camera">
+      <div class="panel-label"><span class="num">1</span> Frame your face</div>
+
+      <div id="cameraReady" style="display:none;">
+        <div class="camera-wrap">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="camera-frame">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+              <circle cx="50" cy="46" r="30" fill="none" stroke="rgba(232,162,58,0.55)" stroke-width="0.6" stroke-dasharray="2 2"/>
+            </svg>
+          </div>
+          <div class="camera-status"><span class="dot"></span> Live</div>
+        </div>
+        <div class="controls-row">
+          <button class="btn-primary" id="btnSnap">Take Photo</button>
+        </div>
+      </div>
+
+      <div id="cameraLoading" style="text-align:center; padding: 50px 10px; color: var(--text-dim);">
+        Asking your camera nicely…
+      </div>
+
+      <div id="cameraError" class="camera-error" style="display:none;">
+        <div class="icon">📷</div>
+        <h3>No camera, no puzzle</h3>
+        <p id="cameraErrorMsg">Camera access was blocked or unavailable. Allow camera permission in your browser's site settings, then try again — this needs HTTPS or localhost to work.</p>
+        <button class="btn-ghost" id="btnRetryCamera">Try Again</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: REVIEW SNAPSHOT -->
+    <section class="view" id="view-review">
+      <div class="panel-label"><span class="num">2</span> Like the shot?</div>
+      <div class="review-shot"><img id="reviewImg" alt="Your captured photo"></div>
+      <div class="controls-row">
+        <button class="btn-ghost" id="btnRetake">Retake Photo</button>
+        <button class="btn-primary" id="btnUsePhoto">Use This Photo</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: DIFFICULTY -->
+    <section class="view" id="view-difficulty">
+      <div class="panel-label"><span class="num">3</span> Choose difficulty</div>
+      <div class="diff-grid">
+        <div class="diff-card" data-size="3">
+          <div class="grid-icon" style="grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);"></div>
+          <div class="lbl">3 × 3</div>
+          <div class="sub">Easy · 9 pieces</div>
+        </div>
+        <div class="diff-card" data-size="4">
+          <div class="grid-icon" style="grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr);"></div>
+          <div class="lbl">4 × 4</div>
+          <div class="sub">Medium · 16 pieces</div>
+        </div>
+        <div class="diff-card" data-size="5">
+          <div class="grid-icon" style="grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr);"></div>
+          <div class="lbl">5 × 5</div>
+          <div class="sub">Hard · 25 pieces</div>
+        </div>
+      </div>
+      <div class="controls-row">
+        <button class="btn-ghost" id="btnBackToReview">Back</button>
+        <button class="btn-primary" id="btnStartPuzzle" disabled>Start Puzzle</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: PUZZLE -->
+    <section class="view" id="view-puzzle">
+      <div class="panel-label"><span class="num">4</span> Solve it</div>
+
+      <div class="hud">
+        <div class="hud-stat"><div class="v" id="hudTime">00:00.0</div><div class="l">Time</div></div>
+        <div class="hud-divider"></div>
+        <div class="hud-stat"><div class="v" id="hudMoves">0</div><div class="l">Moves</div></div>
+        <div class="hud-divider"></div>
+        <div class="hud-stat"><div class="v" id="hudCorrect">0 / 0</div><div class="l">Placed</div></div>
+        <div class="hud-divider"></div>
+        <div class="hud-stat"><div class="v" id="hudDiff">3×3</div><div class="l">Grid</div></div>
+      </div>
+
+      <div class="board-wrap">
+        <div class="board" id="board" role="application" aria-label="Face puzzle board, drag pieces to rearrange"></div>
+      </div>
+
+      <div class="controls-row">
+        <button class="btn-ghost" id="btnShufflePuzzle">Reshuffle</button>
+        <button class="btn-ghost" id="btnChangeDifficulty">Change Difficulty</button>
+        <button class="btn-ghost" id="btnNewPhotoMid">New Photo</button>
+      </div>
+    </section>
+
+  </div>
+
+  <footer class="note">Your photo stays on your device — it's only ever used in your browser to build the puzzle and is never uploaded anywhere. Best times are saved locally in this browser.</footer>
+</div>
+
+<canvas id="captureCanvas"></canvas>
+<canvas id="sliceCanvas"></canvas>
+
+<!-- RESULTS OVERLAY -->
+<div class="overlay" id="overlay">
+  <div class="result-card">
+    <div class="ribbon">Puzzle Solved</div>
+    <h2 id="resultHeadline">Face complete!</h2>
+    <div class="result-grid">
+      <div class="box"><div class="v" id="resTime">00:00.0</div><div class="l">Final Time</div></div>
+      <div class="box"><div class="v" id="resMoves">0</div><div class="l">Moves</div></div>
+      <div class="box"><div class="v" id="resDiff">3×3</div><div class="l">Difficulty</div></div>
+    </div>
+    <div class="leaderboard">
+      <h4><span>Best Times</span><span id="lbScope">3×3</span></h4>
+      <div id="lbList"></div>
+    </div>
+    <div class="result-actions">
+      <button class="btn-ghost" id="btnNewPhotoEnd">New Photo</button>
+      <button class="btn-primary" id="btnPlayAgain">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<div id="liveAnnounce" class="visually-hidden" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ===================== STATE ===================== */
+  var state = {
+    stream: null,
+    photoDataUrl: null,
+    gridSize: 3,
+    pieces: [],          // array of piece objects, index = current board position id
+    board: [],           // board[cellIndex] = pieceId currently sitting there
+    boardSizePx: 480,
+    cellSizePx: 0,
+    moves: 0,
+    startTime: null,
+    elapsed: 0,
+    timerHandle: null,
+    won: false,
+    drag: null
+  };
+
+  /* ===================== ELEMENT REFS ===================== */
+  var $ = function(id){ return document.getElementById(id); };
+  var views = {
+    camera: $('view-camera'),
+    review: $('view-review'),
+    difficulty: $('view-difficulty'),
+    puzzle: $('view-puzzle')
+  };
+  var video = $('video');
+  var cameraReady = $('cameraReady');
+  var cameraLoading = $('cameraLoading');
+  var cameraError = $('cameraError');
+  var cameraErrorMsg = $('cameraErrorMsg');
+  var captureCanvas = $('captureCanvas');
+  var sliceCanvas = $('sliceCanvas');
+  var reviewImg = $('reviewImg');
+  var board = $('board');
+  var overlay = $('overlay');
+  var liveAnnounce = $('liveAnnounce');
+
+  function showView(name){
+    Object.keys(views).forEach(function(k){
+      views[k].classList.toggle('active', k === name);
+    });
+  }
+
+  function announce(msg){
+    liveAnnounce.textContent = msg;
+  }
+
+  /* ===================== CAMERA ===================== */
+  function startCamera(){
+    cameraLoading.style.display = 'block';
+    cameraReady.style.display = 'none';
+    cameraError.style.display = 'none';
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      showCameraError('Your browser does not support camera access (getUserMedia is unavailable). Try a recent version of Chrome, Firefox, or Safari over HTTPS.');
+      return;
+    }
+
+    var constraints = {
+      video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 1280 } },
+      audio: false
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
+      .then(function(stream){
+        state.stream = stream;
+        video.srcObject = stream;
+        cameraLoading.style.display = 'none';
+        cameraReady.style.display = 'block';
+        cameraError.style.display = 'none';
+      })
+      .catch(function(err){
+        var msg;
+        if (err && err.name === 'NotAllowedError'){
+          msg = 'Camera permission was denied. Allow camera access for this site in your browser settings, then click Try Again.';
+        } else if (err && err.name === 'NotFoundError'){
+          msg = 'No camera was found on this device. Connect a webcam or use a device that has one, then try again.';
+        } else if (err && err.name === 'NotReadableError'){
+          msg = 'Your camera seems to be in use by another app. Close other apps using it and try again.';
+        } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1'){
+          msg = 'Camera access requires a secure connection (HTTPS) or localhost. Load this page over HTTPS and try again.';
+        } else {
+          msg = 'Camera access failed (' + (err && err.message ? err.message : 'unknown error') + '). Check your browser permissions and try again.';
+        }
+        showCameraError(msg);
+      });
+  }
+
+  function showCameraError(msg){
+    cameraLoading.style.display = 'none';
+    cameraReady.style.display = 'none';
+    cameraError.style.display = 'block';
+    cameraErrorMsg.textContent = msg;
+  }
+
+  function stopCamera(){
+    if (state.stream){
+      state.stream.getTracks().forEach(function(t){ t.stop(); });
+      state.stream = null;
+    }
+  }
+
+  $('btnRetryCamera').addEventListener('click', startCamera);
+
+  /* ===================== SNAPSHOT ===================== */
+  $('btnSnap').addEventListener('click', function(){
+    var vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return;
+
+    // Crop to a centered square for a clean face puzzle image.
+    var side = Math.min(vw, vh);
+    var sx = (vw - side) / 2;
+    var sy = (vh - side) / 2;
+
+    var OUT = 720;
+    captureCanvas.width = OUT;
+    captureCanvas.height = OUT;
+    var ctx = captureCanvas.getContext('2d');
+
+    // Mirror horizontally to match the preview (selfie view).
+    ctx.save();
+    ctx.translate(OUT, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, OUT, OUT);
+    ctx.restore();
+
+    state.photoDataUrl = captureCanvas.toDataURL('image/jpeg', 0.92);
+    reviewImg.src = state.photoDataUrl;
+
+    stopCamera();
+    showView('review');
+  });
+
+  $('btnRetake').addEventListener('click', function(){
+    showView('camera');
+    startCamera();
+  });
+
+  $('btnUsePhoto').addEventListener('click', function(){
+    showView('difficulty');
+  });
+
+  /* ===================== DIFFICULTY SELECT ===================== */
+  var diffCards = document.querySelectorAll('.diff-card');
+  var btnStartPuzzle = $('btnStartPuzzle');
+  var selectedSize = null;
+
+  diffCards.forEach(function(card){
+    card.addEventListener('click', function(){
+      diffCards.forEach(function(c){ c.classList.remove('selected'); });
+      card.classList.add('selected');
+      selectedSize = parseInt(card.getAttribute('data-size'), 10);
+      btnStartPuzzle.disabled = false;
+    });
+  });
+
+  $('btnBackToReview').addEventListener('click', function(){
+    showView('review');
+  });
+
+  $('btnStartPuzzle').addEventListener('click', function(){
+    if (!selectedSize) return;
+    state.gridSize = selectedSize;
+    buildPuzzle();
+    showView('puzzle');
+  });
+
+  $('btnChangeDifficulty').addEventListener('click', function(){
+    stopTimer();
+    diffCards.forEach(function(c){ c.classList.remove('selected'); });
+    selectedSize = null;
+    btnStartPuzzle.disabled = true;
+    showView('difficulty');
+  });
+
+  $('btnShufflePuzzle').addEventListener('click', function(){
+    buildPuzzle();
+  });
+
+  function goToNewPhoto(){
+    stopTimer();
+    overlay.classList.remove('active');
+    state.photoDataUrl = null;
+    showView('camera');
+    startCamera();
+  }
+  $('btnNewPhotoMid').addEventListener('click', goToNewPhoto);
+  $('btnNewPhotoEnd').addEventListener('click', goToNewPhoto);
+
+  /* ===================== PUZZLE BUILD ===================== */
+  function buildPuzzle(){
+    stopTimer();
+    state.won = false;
+    state.moves = 0;
+    state.elapsed = 0;
+    updateHud();
+
+    var n = state.gridSize;
+    var total = n * n;
+
+    // Slice the captured square image into n*n pieces using an offscreen canvas.
+    var img = new Image();
+    img.onload = function(){
+      var size = 720;
+      var cell = size / n;
+      sliceCanvas.width = size;
+      sliceCanvas.height = size;
+      var sctx = sliceCanvas.getContext('2d');
+      sctx.drawImage(img, 0, 0, size, size);
+
+      var pieces = [];
+      for (var row = 0; row < n; row++){
+        for (var col = 0; col < n; col++){
+          var correctIndex = row * n + col;
+          var pieceCanvas = document.createElement('canvas');
+          pieceCanvas.width = cell;
+          pieceCanvas.height = cell;
+          var pctx = pieceCanvas.getContext('2d');
+          pctx.drawImage(sliceCanvas, col * cell, row * cell, cell, cell, 0, 0, cell, cell);
+          pieces.push({
+            id: correctIndex,
+            correctIndex: correctIndex,
+            dataUrl: pieceCanvas.toDataURL('image/jpeg', 0.9)
+          });
+        }
+      }
+
+      state.pieces = pieces;
+      state.board = solvableShuffle(total, n);
+      renderBoard();
+      startTimer();
+      $('hudDiff').textContent = n + '×' + n;
+    };
+    img.src = state.photoDataUrl;
+  }
+
+  // Generates a shuffled arrangement of piece ids across board cells.
+  // Guaranteed solvable because every arrangement reachable by pure
+  // position swapping (which is exactly the drag-and-drop mechanic here)
+  // is solvable — there's no parity constraint like in a sliding tile
+  // puzzle, since pieces can swap with ANY other piece, not just an
+  // empty slot. We just ensure it isn't already fully solved.
+  function solvableShuffle(total, n){
+    var arr = [];
+    for (var i = 0; i < total; i++) arr.push(i);
+
+    var allSame = true;
+    do {
+      for (var i2 = arr.length - 1; i2 > 0; i2--){
+        var j = Math.floor(Math.random() * (i2 + 1));
+        var tmp = arr[i2]; arr[i2] = arr[j]; arr[j] = tmp;
+      }
+      allSame = true;
+      for (var k = 0; k < arr.length; k++){
+        if (arr[k] !== k){ allSame = false; break; }
+      }
+    } while (allSame && total > 1);
+
+    return arr;
+  }
+
+  /* ===================== RENDER BOARD ===================== */
+  var pieceEls = {}; // pieceId -> DOM element
+
+  function renderBoard(){
+    board.innerHTML = '';
+    pieceEls = {};
+
+    var n = state.gridSize;
+    var boardRect = board.getBoundingClientRect();
+    var boardPx = boardRect.width || 480;
+    state.boardSizePx = boardPx;
+    state.cellSizePx = boardPx / n;
+
+    // grid lines (decorative, behind pieces)
+    var gridLayer = document.createElement('div');
+    gridLayer.className = 'cell-grid';
+    for (var g = 1; g < n; g++){
+      var vline = document.createElement('div');
+      vline.className = 'cell-line';
+      vline.style.left = (g * state.cellSizePx) + 'px';
+      vline.style.top = '0';
+      vline.style.width = '1px';
+      vline.style.height = '100%';
+      gridLayer.appendChild(vline);
+
+      var hline = document.createElement('div');
+      hline.className = 'cell-line';
+      hline.style.top = (g * state.cellSizePx) + 'px';
+      hline.style.left = '0';
+      hline.style.height = '1px';
+      hline.style.width = '100%';
+      gridLayer.appendChild(hline);
+    }
+    board.appendChild(gridLayer);
+
+    state.board.forEach(function(pieceId, cellIndex){
+      var piece = state.pieces[pieceId];
+      var el = document.createElement('div');
+      el.className = 'piece';
+      el.dataset.pieceId = pieceId;
+      el.style.width = state.cellSizePx + 'px';
+      el.style.height = state.cellSizePx + 'px';
+      el.style.backgroundImage = 'url(' + piece.dataUrl + ')';
+      el.style.backgroundSize = 'cover';
+      positionPiece(el, cellIndex, false);
+      attachDragHandlers(el);
+      board.appendChild(el);
+      pieceEls[pieceId] = el;
+    });
+
+    refreshCorrectness();
+    updateHud();
+  }
+
+  function cellIndexToXY(cellIndex){
+    var n = state.gridSize;
+    var row = Math.floor(cellIndex / n);
+    var col = cellIndex % n;
+    return { x: col * state.cellSizePx, y: row * state.cellSizePx };
+  }
+
+  function xyToCellIndex(x, y){
+    var n = state.gridSize;
+    var col = Math.round(x / state.cellSizePx);
+    var row = Math.round(y / state.cellSizePx);
+    col = Math.max(0, Math.min(n - 1, col));
+    row = Math.max(0, Math.min(n - 1, row));
+    return row * n + col;
+  }
+
+  function positionPiece(el, cellIndex, animate){
+    var xy = cellIndexToXY(cellIndex);
+    el.classList.toggle('settle', !!animate);
+    el.style.left = xy.x + 'px';
+    el.style.top = xy.y + 'px';
+    el.dataset.cellIndex = cellIndex;
+  }
+
+  function refreshCorrectness(){
+    var correctCount = 0;
+    state.board.forEach(function(pieceId, cellIndex){
+      var piece = state.pieces[pieceId];
+      var el = pieceEls[pieceId];
+      var isCorrect = piece.correctIndex === cellIndex;
+      el.classList.toggle('correct', isCorrect);
+      if (isCorrect) correctCount++;
+    });
+    $('hudCorrect').textContent = correctCount + ' / ' + state.pieces.length;
+
+    if (correctCount === state.pieces.length && state.pieces.length > 0 && !state.won){
+      handleWin();
+    }
+  }
+
+  /* ===================== DRAG & TOUCH ===================== */
+  function attachDragHandlers(el){
+    el.addEventListener('mousedown', onPointerDown);
+    el.addEventListener('touchstart', onPointerDown, { passive: false });
+  }
+
+  function getPoint(e){
+    if (e.touches && e.touches.length) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    if (e.changedTouches && e.changedTouches.length) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function onPointerDown(e){
+    if (state.won) return;
+    var el = e.currentTarget;
+    e.preventDefault();
+
+    var boardRect = board.getBoundingClientRect();
+    var point = getPoint(e);
+    var elRect = el.getBoundingClientRect();
+
+    state.drag = {
+      el: el,
+      pieceId: parseInt(el.dataset.pieceId, 10),
+      fromCell: parseInt(el.dataset.cellIndex, 10),
+      offsetX: point.x - elRect.left,
+      offsetY: point.y - elRect.top,
+      boardRect: boardRect
+    };
+
+    el.classList.remove('settle');
+    el.classList.add('dragging');
+
+    document.addEventListener('mousemove', onPointerMove);
+    document.addEventListener('mouseup', onPointerUp);
+    document.addEventListener('touchmove', onPointerMove, { passive: false });
+    document.addEventListener('touchend', onPointerUp);
+    document.addEventListener('touchcancel', onPointerUp);
+  }
+
+  function onPointerMove(e){
+    if (!state.drag) return;
+    e.preventDefault();
+    var point = getPoint(e);
+    var d = state.drag;
+
+    var localX = point.x - d.boardRect.left - d.offsetX;
+    var localY = point.y - d.boardRect.top - d.offsetY;
+
+    var maxPos = state.boardSizePx - state.cellSizePx;
+    localX = Math.max(-state.cellSizePx * 0.3, Math.min(maxPos + state.cellSizePx * 0.3, localX));
+    localY = Math.max(-state.cellSizePx * 0.3, Math.min(maxPos + state.cellSizePx * 0.3, localY));
+
+    d.el.style.left = localX + 'px';
+    d.el.style.top = localY + 'px';
+  }
+
+  function onPointerUp(e){
+    if (!state.drag) return;
+    var d = state.drag;
+    var point = getPoint(e);
+
+    var localX = point.x - d.boardRect.left - d.offsetX + state.cellSizePx / 2;
+    var localY = point.y - d.boardRect.top - d.offsetY + state.cellSizePx / 2;
+
+    var targetCell = xyToCellIndex(localX, localY);
+
+    d.el.classList.remove('dragging');
+
+    if (targetCell !== d.fromCell){
+      swapCells(d.fromCell, targetCell);
+      state.moves++;
+      announce('Moved piece. ' + state.moves + ' moves so far.');
+    } else {
+      positionPiece(d.el, d.fromCell, true);
+    }
+
+    refreshCorrectness();
+    updateHud();
+
+    document.removeEventListener('mousemove', onPointerMove);
+    document.removeEventListener('mouseup', onPointerUp);
+    document.removeEventListener('touchmove', onPointerMove);
+    document.removeEventListener('touchend', onPointerUp);
+    document.removeEventListener('touchcancel', onPointerUp);
+
+    state.drag = null;
+  }
+
+  function swapCells(cellA, cellB){
+    var pieceAId = state.board[cellA];
+    var pieceBId = state.board[cellB];
+
+    state.board[cellA] = pieceBId;
+    state.board[cellB] = pieceAId;
+
+    positionPiece(pieceEls[pieceAId], cellB, true);
+    positionPiece(pieceEls[pieceBId], cellA, true);
+  }
+
+  /* ===================== TIMER ===================== */
+  function startTimer(){
+    state.startTime = performance.now();
+    if (state.timerHandle) clearInterval(state.timerHandle);
+    state.timerHandle = setInterval(function(){
+      state.elapsed = performance.now() - state.startTime;
+      $('hudTime').textContent = formatTime(state.elapsed);
+    }, 100);
+  }
+
+  function stopTimer(){
+    if (state.timerHandle){
+      clearInterval(state.timerHandle);
+      state.timerHandle = null;
+    }
+  }
+
+  function formatTime(ms){
+    var totalTenths = Math.floor(ms / 100);
+    var tenths = totalTenths % 10;
+    var totalSeconds = Math.floor(totalTenths / 10);
+    var seconds = totalSeconds % 60;
+    var minutes = Math.floor(totalSeconds / 60);
+    return pad2(minutes) + ':' + pad2(seconds) + '.' + tenths;
+  }
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+
+  function updateHud(){
+    $('hudMoves').textContent = state.moves;
+    $('hudTime').textContent = formatTime(state.elapsed);
+  }
+
+  /* ===================== WIN HANDLING ===================== */
+  function handleWin(){
+    state.won = true;
+    stopTimer();
+    state.elapsed = performance.now() - state.startTime;
+    $('hudTime').textContent = formatTime(state.elapsed);
+    announce('Puzzle solved in ' + formatTime(state.elapsed) + ' with ' + state.moves + ' moves.');
+
+    var n = state.gridSize;
+    var diffLabel = n + '×' + n;
+
+    $('resTime').textContent = formatTime(state.elapsed);
+    $('resMoves').textContent = state.moves;
+    $('resDiff').textContent = diffLabel;
+    $('lbScope').textContent = diffLabel;
+
+    var record = {
+      time: state.elapsed,
+      moves: state.moves,
+      difficulty: diffLabel,
+      date: new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    };
+
+    var isNewBest = saveScore(record);
+    renderLeaderboard(diffLabel, record, isNewBest);
+
+    setTimeout(function(){ overlay.classList.add('active'); }, 350);
+  }
+
+  var STORAGE_KEY = 'facePuzzleBestTimes';
+
+  function loadAllScores(){
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return {};
+      var parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e){
+      return {};
+    }
+  }
+
+  function saveScore(record){
+    var all = loadAllScores();
+    var list = all[record.difficulty] || [];
+    list.push(record);
+    list.sort(function(a, b){ return a.time - b.time; });
+    var wasTop5 = list.slice(0, 5).indexOf(record) !== -1;
+    list = list.slice(0, 5);
+    all[record.difficulty] = list;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    } catch (e){
+      // localStorage unavailable (private mode, quota, etc.) — fail silently, game still works
+    }
+    return wasTop5;
+  }
+
+  function renderLeaderboard(diffLabel, thisRecord, isNewBest){
+    var all = loadAllScores();
+    var list = all[diffLabel] || [];
+    var lbList = $('lbList');
+    lbList.innerHTML = '';
+
+    if (list.length === 0){
+      lbList.innerHTML = '<div class="lb-empty">No times saved yet for this difficulty.</div>';
+      return;
+    }
+
+    list.forEach(function(rec, idx){
+      var row = document.createElement('div');
+      var isThis = isNewBest && rec.time === thisRecord.time && rec.moves === thisRecord.moves && rec.date === thisRecord.date;
+      row.className = 'lb-row' + (isThis ? ' this-run' : '');
+      row.innerHTML =
+        '<div class="rank">' + (idx + 1) + '</div>' +
+        '<div class="lb-time">' + formatTime(rec.time) + '</div>' +
+        '<div class="lb-meta">' + rec.moves + ' moves · ' + rec.date + '</div>';
+      lbList.appendChild(row);
+    });
+  }
+
+  $('btnPlayAgain').addEventListener('click', function(){
+    overlay.classList.remove('active');
+    buildPuzzle();
+  });
+
+  /* ===================== RESIZE HANDLING ===================== */
+  var resizeRaf = null;
+  window.addEventListener('resize', function(){
+    if (!state.pieces.length) return;
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(function(){
+      var boardRect = board.getBoundingClientRect();
+      var boardPx = boardRect.width || 480;
+      state.boardSizePx = boardPx;
+      state.cellSizePx = boardPx / state.gridSize;
+
+      Object.keys(pieceEls).forEach(function(pieceId){
+        var el = pieceEls[pieceId];
+        el.style.width = state.cellSizePx + 'px';
+        el.style.height = state.cellSizePx + 'px';
+      });
+      state.board.forEach(function(pieceId, cellIndex){
+        positionPiece(pieceEls[pieceId], cellIndex, false);
+      });
+
+      // redraw grid lines
+      var gridLayer = board.querySelector('.cell-grid');
+      if (gridLayer){
+        gridLayer.innerHTML = '';
+        var n = state.gridSize;
+        for (var g = 1; g < n; g++){
+          var vline = document.createElement('div');
+          vline.className = 'cell-line';
+          vline.style.left = (g * state.cellSizePx) + 'px';
+          vline.style.top = '0';
+          vline.style.width = '1px';
+          vline.style.height = '100%';
+          gridLayer.appendChild(vline);
+
+          var hline = document.createElement('div');
+          hline.className = 'cell-line';
+          hline.style.top = (g * state.cellSizePx) + 'px';
+          hline.style.left = '0';
+          hline.style.height = '1px';
+          hline.style.width = '100%';
+          gridLayer.appendChild(hline);
+        }
+      }
+    });
+  });
+
+  /* ===================== INIT ===================== */
+  startCamera();
+
+  window.addEventListener('beforeunload', function(){
+    stopCamera();
+  });
+
+})();
+</script>
+</body>
+</html>
